@@ -8,27 +8,33 @@ namespace FragileAllegiance.Model
 {
     public class Player
     {
-        private List<Asteroid> _asteroids;
+        private readonly List<Asteroid> _asteroids;
         public string PlayerName { get; private set; }
 
-        public Player(string name)
+        public Player(string name, List<Asteroid> asteroids)
         {
             PlayerName = name;
+            _asteroids = asteroids;
         }
 
         private Player()
         {
-            
         }
 
         public void AddAsteroid(Asteroid asteroid)
         {
-            
+            lock (_asteroids)
+            {
+                _asteroids.Add(asteroid);
+            }
         }
 
         public void RemoveAsteroid(Asteroid asteroid)
         {
-            
+            lock (_asteroids)
+            {
+                _asteroids.Remove(asteroid);
+            }
         }
     }
 

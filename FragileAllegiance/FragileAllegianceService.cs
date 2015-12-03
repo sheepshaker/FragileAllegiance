@@ -9,53 +9,101 @@ namespace FragileAllegiance
 {
     public class FragileAllegianceService
     {
-        Space _space;
-        readonly Dictionary<string, Player> _playerMap;
-        public event EventHandler<PlayerSessionEventArgs> PlayerJoined;
-        public event EventHandler<PlayerSessionEventArgs> PlayerLeft;
+        private readonly Dictionary<string, Player> _playerMap;
+        private readonly Dictionary<string, Asteroid> _asteroidMap;
+        public event EventHandler<PlayerStateEventArgs> PlayerStateChanged;
+        public event EventHandler<AsteroidStateEventArgs> AsteroidStateChanged;
+        public event EventHandler<AsteroidOwnershipEventArgs> AsteroidOwnershipChanged;
+
 
         private FragileAllegianceService()
         {
             
         }
         
-        public FragileAllegianceService(Space space, Dictionary<string, Player> playerMap)
+        public FragileAllegianceService(Dictionary<string, Player> playerMap, Dictionary<string, Asteroid> asteroidMap)
         {
-            _space = space;
+            _asteroidMap = asteroidMap;
             _playerMap = playerMap;
         }
 
-        public void AddPlayer(string playerName)
+        public Player AddPlayer(string playerName, List<Asteroid> asteroids)
         {
             lock (_playerMap)
             {
                 if (_playerMap.ContainsKey(playerName))
                     throw new Exception("Player name already exists");
 
-                var player = new Player(playerName);
+                var player = new Player(playerName, asteroids);
                 _playerMap.Add(playerName, player);
-                FireEvent(PlayerJoined, this, new PlayerSessionEventArgs(player));
+                PlayerStateChanged.SafeInvokeAsync(this, new PlayerStateEventArgs(new[] { player }, PlayerStateEventArgs.PlayerState.Joined));
+                return player;
             }
         }
 
         public void RemovePlayer(string playerName)
         {
-            Player player;
             lock (_playerMap)
             {
+                Player player;
                 if (_playerMap.TryGetValue(playerName, out player) == false)
                 {
                     throw new Exception("Player name already exists");
                 }
 
                 _playerMap.Remove(playerName);
+                PlayerStateChanged.SafeInvokeAsync(this, new PlayerStateEventArgs(new[] { player}, PlayerStateEventArgs.PlayerState.Left));
             }
-            FireEvent(PlayerLeft, this, new PlayerSessionEventArgs(player));
+
+            
         }
 
-        private void FireEvent<T>(EventHandler<T> eventHandler, object sender, T args) where T:EventArgs
+        public Asteroid AddAsteroid()
         {
-            eventHandler?.BeginInvoke(sender, args, null, null);
+            lock (_asteroidMap)
+            {
+                var asteroid = new Asteroid();
+                _asteroidMap[asteroid.AsteroidId] = asteroid;
+                AsteroidStateChanged.SafeInvokeAsync(this, new AsteroidStateEventArgs(new[] { asteroid}, AsteroidStateEventArgs.AsteroidState.Added));
+                return asteroid;
+            }
+        }
+
+        public void RemoveAsteroid(string asteroidId)
+        {
+            lock (_asteroidMap)
+            {
+                Asteroid asteroid;
+                if (_asteroidMap.TryGetValue(asteroidId, out asteroid) == false)
+                {
+                  throw new Exception("Asteroid ID doesn't exist");  
+                }
+
+                _asteroidMap.Remove(asteroidId);
+                AsteroidStateChanged.SafeInvokeAsync(this, new AsteroidStateEventArgs(new [] { asteroid}, AsteroidStateEventArgs.AsteroidState.Removed));
+            }
+        }
+
+        public void AddAsteroidToPlayer(Asteroid asteroid, Player player)
+        {
+            lock (_asteroidMap)
+            {
+                lock (_playerMap)
+                {
+                    
+                }
+            }
+        }
+
+        public void RemoveAsteroidFromPlayer(Asteroid asteroid, Player player)
+        {
+            lock (_asteroidMap)
+            {
+                lock (_playerMap)
+                {
+
+                }
+            }
         }
     }
 }

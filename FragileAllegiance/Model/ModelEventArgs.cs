@@ -6,29 +6,59 @@ using System.Threading.Tasks;
 
 namespace FragileAllegiance.Model
 {
-    public class PlayerSessionEventArgs : ModelEventArgs<Player>
+    public class PlayerStateEventArgs : EventArgs
     {
-        public PlayerSessionEventArgs(Player player) : base(player)
-        {
+        public PlayerState State { get; private set; }
+        public IEnumerable<Player> Players { get; private set; }
 
+        public PlayerStateEventArgs(IEnumerable<Player> players, PlayerState state)
+        {
+            State = state;
+            Players = players;
+        }
+
+        public enum PlayerState
+        {
+            Joined,
+            Left
         }
     }
 
-    public class AsteroidSessionEventArgs : ModelEventArgs<Asteroid>
+    public class AsteroidStateEventArgs : EventArgs
     {
-        public AsteroidSessionEventArgs(Asteroid asteroid) : base(asteroid)
-        {
+        public AsteroidState State { get; private set; }
+        public IEnumerable<Asteroid> Asteroid { get; private set; }
 
+        public AsteroidStateEventArgs(IEnumerable<Asteroid> asteroid, AsteroidState state)
+        {
+            State = state;
+            Asteroid = asteroid;
+        }
+
+        public enum AsteroidState
+        {
+            Added,
+            Removed
         }
     }
 
-    public class ModelEventArgs<T> : EventArgs
+    public class AsteroidOwnershipEventArgs : EventArgs
     {
-        public T Model { get; private set; }
+        public AsteroidOwnershipState State { get; private set; }
+        public IEnumerable<Asteroid> Asteroids { get; private set; }
+        public Player Player { get; private set; }
 
-        public ModelEventArgs(T model)
+        public AsteroidOwnershipEventArgs(IEnumerable<Asteroid> asteroids, Player player, AsteroidOwnershipState state)
         {
-            Model = model;
+            State = state;
+            Asteroids = asteroids;
+            Player = player;
+        }
+
+        public enum AsteroidOwnershipState
+        {
+            PlayerGainedOwnership,
+            PlayerLostOwnership
         }
     }
 }
