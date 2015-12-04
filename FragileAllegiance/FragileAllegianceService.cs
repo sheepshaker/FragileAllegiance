@@ -45,17 +45,10 @@ namespace FragileAllegiance
         {
             lock (_playerMap)
             {
-                Player player;
-                if (_playerMap.TryGetValue(playerName, out player) == false)
-                {
-                    throw new Exception("Player name already exists");
-                }
-
+                var player = GetPlayer(playerName);
                 _playerMap.Remove(playerName);
                 PlayerStateChanged.SafeInvokeAsync(this, new PlayerStateEventArgs(new[] { player}, PlayerStateEventArgs.PlayerState.Left));
             }
-
-            
         }
 
         public Asteroid AddAsteroid()
@@ -64,46 +57,126 @@ namespace FragileAllegiance
             {
                 var asteroid = new Asteroid();
                 _asteroidMap[asteroid.AsteroidId] = asteroid;
-                AsteroidStateChanged.SafeInvokeAsync(this, new AsteroidStateEventArgs(new[] { asteroid}, AsteroidStateEventArgs.AsteroidState.Added));
+                AsteroidStateChanged.SafeInvokeAsync(this,
+                    new AsteroidStateEventArgs(new[] {asteroid.AsteroidId}, AsteroidStateEventArgs.AsteroidState.Added));
                 return asteroid;
             }
         }
 
-        public void RemoveAsteroid(string asteroidId)
+        private Player GetPlayer(string playerName)
         {
-            lock (_asteroidMap)
-            {
-                Asteroid asteroid;
-                if (_asteroidMap.TryGetValue(asteroidId, out asteroid) == false)
-                {
-                  throw new Exception("Asteroid ID doesn't exist");  
-                }
+            Player player;
 
-                _asteroidMap.Remove(asteroidId);
-                AsteroidStateChanged.SafeInvokeAsync(this, new AsteroidStateEventArgs(new [] { asteroid}, AsteroidStateEventArgs.AsteroidState.Removed));
+            lock (_playerMap)
+            {
+                if (_playerMap.TryGetValue(playerName, out player) == false)
+                {
+                    throw new Exception("Player name doesn't exist");
+                }
+            }
+
+            return player;
+        }
+
+        private void SetAsteroidsOwnership(Player player, IEnumerable<Asteroid> asteroids)
+        {
+            foreach (var asteroid in asteroids)
+            {
+                asteroid.SetOwner(player);
             }
         }
 
-        public void AddAsteroidToPlayer(Asteroid asteroid, Player player)
+        private void ClearAsteroidsOwnership(IEnumerable<Asteroid> asteroids)
+        {
+            foreach (var asteroid in asteroids)
+            {
+                asteroid.ClearOwner();
+            }
+        }
+
+        private IList<Asteroid> GetAsteroids(IEnumerable<string> asteroidIds)
         {
             lock (_asteroidMap)
             {
-                lock (_playerMap)
+                var aIds = asteroidIds as IList<string> ?? asteroidIds.ToList();
+
+                ThrowIfAnyOfAsteroidIdsDoesntExist(aIds);
+
+                return aIds.Select(x => _asteroidMap[x]).ToList();
+            }
+        }
+
+        private void ThrowIfAnyOfAsteroidIdsDoesntExist(IEnumerable<string> asteroidIds)
+        {
+            lock (_asteroidMap)
+            {
+                var missingAsteroidIds = asteroidIds.Except(_asteroidMap.Keys).ToList();
+                if (missingAsteroidIds.Any())
                 {
-                    
+                    throw new Exception(string.Format("Asteroid Ids not found: {0}", missingAsteroidIds));
                 }
             }
         }
 
-        public void RemoveAsteroidFromPlayer(Asteroid asteroid, Player player)
+        public void RemoveAsteroids(IEnumerable<string> asteroidIds)
         {
+            var aIds = asteroidIds as IList<string> ?? asteroidIds.ToList();
+
             lock (_asteroidMap)
             {
-                lock (_playerMap)
-                {
+                ThrowIfAnyOfAsteroidIdsDoesntExist(aIds);
 
+                foreach (var asteroid in _asteroidMap.Where(a => aIds.Contains(a.Key)).ToList())
+                {
+                    _asteroidMap.Remove(asteroid.Key);
                 }
             }
+
+            AsteroidStateChanged.SafeInvokeAsync(this, new AsteroidStateEventArgs(aIds, AsteroidStateEventArgs.AsteroidState.Removed));
+        }
+
+        public void AddAsteroidsToPlayer(IEnumerable<string> asteroidIds, string playerId)
+        {
+            var player = GetPlayer(playerId);
+
+
+            var aIds = asteroidIds as IList<string> ?? asteroidIds.ToList();
+            var asteroids = GetAsteroids(aIds);
+
+            lock (_playerMap)
+            {
+                player.AddAsteroids(asteroids);
+
+                lock (_asteroidMap)
+                {
+                    SetAsteroidsOwnership(player, asteroids);
+                }
+            }
+
+            AsteroidOwnershipChanged.SafeInvokeAsync(this,
+                        new AsteroidOwnershipEventArgs(aIds, playerId,
+                            AsteroidOwnershipEventArgs.AsteroidOwnershipState.PlayerGainedOwnership));
+        }
+
+        public void RemoveAsteroidsFromPlayer(IEnumerable<string> asteroidIds, string playerId)
+        {
+            var player = GetPlayer(playerId);
+
+
+            var aIds = asteroidIds as IList<string> ?? asteroidIds.ToList();
+            var asteroids = GetAsteroids(aIds);
+
+            lock (_playerMap)
+            {
+                player.AddAsteroids(asteroids);
+
+                lock (_asteroidMap)
+                {
+                    ClearAsteroidsOwnership(asteroids);
+                }
+            }
+
+            AsteroidOwnershipChanged.SafeInvokeAsync(this, new AsteroidOwnershipEventArgs(asteroidIds, playerId, AsteroidOwnershipEventArgs.AsteroidOwnershipState.PlayerLostOwnership));
         }
     }
 }

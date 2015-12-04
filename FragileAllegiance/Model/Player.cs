@@ -21,20 +21,25 @@ namespace FragileAllegiance.Model
         {
         }
 
-        public void AddAsteroid(Asteroid asteroid)
+        public void AddAsteroids(IEnumerable<Asteroid> asteroids)
         {
             lock (_asteroids)
             {
-                _asteroids.Add(asteroid);
+                _asteroids.AddRange(asteroids);
             }
         }
 
-        public void RemoveAsteroid(Asteroid asteroid)
+        public void RemoveAsteroids(IEnumerable<Asteroid> asteroids)
         {
             lock (_asteroids)
             {
-                _asteroids.Remove(asteroid);
+                _asteroids.RemoveAll(asteroids.Contains);
             }
+        }
+
+        public IEnumerable<Asteroid> OwnedAsteroids
+        {
+            get { return _asteroids; }
         }
     }
 

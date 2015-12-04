@@ -27,12 +27,12 @@ namespace FragileAllegiance.Model
     public class AsteroidStateEventArgs : EventArgs
     {
         public AsteroidState State { get; private set; }
-        public IEnumerable<Asteroid> Asteroid { get; private set; }
+        public IEnumerable<string> AsteroidIds { get; private set; }
 
-        public AsteroidStateEventArgs(IEnumerable<Asteroid> asteroid, AsteroidState state)
+        public AsteroidStateEventArgs(IEnumerable<string> asteroids, AsteroidState state)
         {
             State = state;
-            Asteroid = asteroid;
+            AsteroidIds = asteroids;
         }
 
         public enum AsteroidState
@@ -45,14 +45,14 @@ namespace FragileAllegiance.Model
     public class AsteroidOwnershipEventArgs : EventArgs
     {
         public AsteroidOwnershipState State { get; private set; }
-        public IEnumerable<Asteroid> Asteroids { get; private set; }
-        public Player Player { get; private set; }
+        public IEnumerable<string> AsteroidIds { get; private set; }
+        public string PlayerId { get; private set; }
 
-        public AsteroidOwnershipEventArgs(IEnumerable<Asteroid> asteroids, Player player, AsteroidOwnershipState state)
+        public AsteroidOwnershipEventArgs(IEnumerable<string> asteroidIds, string playerId, AsteroidOwnershipState state)
         {
             State = state;
-            Asteroids = asteroids;
-            Player = player;
+            AsteroidIds = asteroidIds;
+            PlayerId = playerId;
         }
 
         public enum AsteroidOwnershipState

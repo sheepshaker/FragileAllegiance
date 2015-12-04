@@ -15,7 +15,7 @@ namespace FragileAllegiance.Model
             AsteroidId = Guid.NewGuid().ToString();
         }
 
-        public void AddOwner(Player player)
+        public void SetOwner(Player player)
         {
             if (OwnerPlayer != null)
             {
@@ -23,7 +23,7 @@ namespace FragileAllegiance.Model
             }
         }
 
-        public void RemoveOwner()
+        public void ClearOwner()
         {
             if (OwnerPlayer == null)
             {
