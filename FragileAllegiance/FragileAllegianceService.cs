@@ -15,19 +15,28 @@ namespace FragileAllegiance
         public event EventHandler<AsteroidStateEventArgs> AsteroidStateChanged;
         public event EventHandler<AsteroidOwnershipEventArgs> AsteroidOwnershipChanged;
 
-
         private FragileAllegianceService()
         {
             
         }
         
-        public FragileAllegianceService(Dictionary<string, Player> playerMap, Dictionary<string, Asteroid> asteroidMap)
+        public FragileAllegianceService(IEnumerable<Player> players, IEnumerable<Asteroid> asteroids)
         {
-            _asteroidMap = asteroidMap;
-            _playerMap = playerMap;
+            _asteroidMap = asteroids.ToDictionary(a => a.AsteroidId);
+            _playerMap = players.ToDictionary(p => p.PlayerName);
         }
 
-        public Player AddPlayer(string playerName, List<Asteroid> asteroids)
+        public IEnumerable<Player> Players
+        {
+            get { return _playerMap.Values; }
+        }
+
+        public IEnumerable<Asteroid> Asteroids
+        {
+            get { return _asteroidMap.Values; }
+        }
+
+        public Player AddPlayer(string playerName, IEnumerable<Asteroid> asteroids)
         {
             lock (_playerMap)
             {
@@ -36,7 +45,7 @@ namespace FragileAllegiance
 
                 var player = new Player(playerName, asteroids);
                 _playerMap.Add(playerName, player);
-                PlayerStateChanged.SafeInvokeAsync(this, new PlayerStateEventArgs(new[] { player }, PlayerStateEventArgs.PlayerState.Joined));
+                PlayerStateChanged.SafeInvokeAsync(this, new PlayerStateEventArgs(new[] { player.PlayerName }, PlayerStateEventArgs.PlayerState.Joined));
                 return player;
             }
         }
@@ -47,7 +56,8 @@ namespace FragileAllegiance
             {
                 var player = GetPlayer(playerName);
                 _playerMap.Remove(playerName);
-                PlayerStateChanged.SafeInvokeAsync(this, new PlayerStateEventArgs(new[] { player}, PlayerStateEventArgs.PlayerState.Left));
+                player.RemoveAllAsteroids();
+                PlayerStateChanged.SafeInvokeAsync(this, new PlayerStateEventArgs(new[] { player.PlayerName }, PlayerStateEventArgs.PlayerState.Left));
             }
         }
 
@@ -63,7 +73,7 @@ namespace FragileAllegiance
             }
         }
 
-        private Player GetPlayer(string playerName)
+        public Player GetPlayer(string playerName)
         {
             Player player;
 
@@ -76,6 +86,21 @@ namespace FragileAllegiance
             }
 
             return player;
+        }
+
+        public Asteroid GetAsteroid(string asteroidId)
+        {
+            Asteroid asteroid;
+
+            lock (_playerMap)
+            {
+                if (_asteroidMap.TryGetValue(asteroidId, out asteroid) == false)
+                {
+                    throw new Exception("Asteroid Id doesn't exist");
+                }
+            }
+
+            return asteroid;
         }
 
         private void SetAsteroidsOwnership(Player player, IEnumerable<Asteroid> asteroids)
@@ -94,29 +119,27 @@ namespace FragileAllegiance
             }
         }
 
-        private IList<Asteroid> GetAsteroids(IEnumerable<string> asteroidIds)
+        private List<Asteroid> GetAsteroids(IEnumerable<string> asteroidIds)
         {
             lock (_asteroidMap)
             {
                 var aIds = asteroidIds as IList<string> ?? asteroidIds.ToList();
 
-                ThrowIfAnyOfAsteroidIdsDoesntExist(aIds);
-
-                return aIds.Select(x => _asteroidMap[x]).ToList();
+                return _asteroidMap.Where(x => aIds.Contains(x.Key)).Select(x => x.Value).ToList();
             }
         }
 
-        private void ThrowIfAnyOfAsteroidIdsDoesntExist(IEnumerable<string> asteroidIds)
-        {
-            lock (_asteroidMap)
-            {
-                var missingAsteroidIds = asteroidIds.Except(_asteroidMap.Keys).ToList();
-                if (missingAsteroidIds.Any())
-                {
-                    throw new Exception(string.Format("Asteroid Ids not found: {0}", missingAsteroidIds));
-                }
-            }
-        }
+        //private void ThrowIfAnyOfAsteroidIdsDoesntExist(IEnumerable<Asteroid> asteroids)
+        //{
+        //    lock (_asteroidMap)
+        //    {
+        //        var missingAsteroids = asteroids.Except(_asteroidMap.Values).ToList();
+        //        if (missingAsteroids.Any())
+        //        {
+        //            throw new Exception(string.Format("Asteroid Ids not found: {0}", missingAsteroids));
+        //        }
+        //    }
+        //}
 
         public void RemoveAsteroids(IEnumerable<string> asteroidIds)
         {
@@ -124,8 +147,6 @@ namespace FragileAllegiance
 
             lock (_asteroidMap)
             {
-                ThrowIfAnyOfAsteroidIdsDoesntExist(aIds);
-
                 foreach (var asteroid in _asteroidMap.Where(a => aIds.Contains(a.Key)).ToList())
                 {
                     _asteroidMap.Remove(asteroid.Key);
@@ -135,48 +156,42 @@ namespace FragileAllegiance
             AsteroidStateChanged.SafeInvokeAsync(this, new AsteroidStateEventArgs(aIds, AsteroidStateEventArgs.AsteroidState.Removed));
         }
 
-        public void AddAsteroidsToPlayer(IEnumerable<string> asteroidIds, string playerId)
+        public void AddAsteroidsToPlayer(IEnumerable<Asteroid> asteroids, Player player)
         {
-            var player = GetPlayer(playerId);
-
-
-            var aIds = asteroidIds as IList<string> ?? asteroidIds.ToList();
-            var asteroids = GetAsteroids(aIds);
+            var asteroidList = asteroids as IList<Asteroid> ?? asteroids.ToList();
 
             lock (_playerMap)
             {
-                player.AddAsteroids(asteroids);
+                player.AddAsteroids(asteroidList);
 
                 lock (_asteroidMap)
                 {
-                    SetAsteroidsOwnership(player, asteroids);
+                    SetAsteroidsOwnership(player, asteroidList);
                 }
             }
 
             AsteroidOwnershipChanged.SafeInvokeAsync(this,
-                        new AsteroidOwnershipEventArgs(aIds, playerId,
+                        new AsteroidOwnershipEventArgs(asteroidList.Select(a => a.AsteroidId), player.PlayerName,
                             AsteroidOwnershipEventArgs.AsteroidOwnershipState.PlayerGainedOwnership));
         }
 
-        public void RemoveAsteroidsFromPlayer(IEnumerable<string> asteroidIds, string playerId)
+        public void RemoveAsteroidsFromPlayer(IEnumerable<Asteroid> asteroids, Player player)
         {
-            var player = GetPlayer(playerId);
-
-
-            var aIds = asteroidIds as IList<string> ?? asteroidIds.ToList();
-            var asteroids = GetAsteroids(aIds);
+            var asteroidList = asteroids as IList<Asteroid> ?? asteroids.ToList();
 
             lock (_playerMap)
             {
-                player.AddAsteroids(asteroids);
+                player.RemoveAsteroids(asteroidList);
 
                 lock (_asteroidMap)
                 {
-                    ClearAsteroidsOwnership(asteroids);
+                    ClearAsteroidsOwnership(asteroidList);
                 }
             }
 
-            AsteroidOwnershipChanged.SafeInvokeAsync(this, new AsteroidOwnershipEventArgs(asteroidIds, playerId, AsteroidOwnershipEventArgs.AsteroidOwnershipState.PlayerLostOwnership));
+            AsteroidOwnershipChanged.SafeInvokeAsync(this,
+                new AsteroidOwnershipEventArgs(asteroidList.Select(a => a.AsteroidId), player.PlayerName,
+                    AsteroidOwnershipEventArgs.AsteroidOwnershipState.PlayerLostOwnership));
         }
     }
 }

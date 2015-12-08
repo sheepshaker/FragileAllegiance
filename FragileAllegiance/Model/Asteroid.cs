@@ -8,11 +8,12 @@ namespace FragileAllegiance.Model
 {
     public class Asteroid
     {
+        private static int _id;
         public string AsteroidId { get; private set; }
 
         public Asteroid()
         {
-            AsteroidId = Guid.NewGuid().ToString();
+            AsteroidId = _id++.ToString(); //Guid.NewGuid().ToString();
         }
 
         public void SetOwner(Player player)
@@ -21,6 +22,8 @@ namespace FragileAllegiance.Model
             {
                 throw new Exception("Asteroid has already got an owner");
             }
+
+            OwnerPlayer = player;
         }
 
         public void ClearOwner()

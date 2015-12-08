@@ -6,15 +6,15 @@ using System.Threading.Tasks;
 
 namespace FragileAllegiance.Model
 {
-    public class PlayerStateEventArgs : EventArgs
+    public class PlayerStateEventArgs : BaseEventArgs
     {
         public PlayerState State { get; private set; }
-        public IEnumerable<Player> Players { get; private set; }
+        public IEnumerable<string> PlayerIds { get; private set; }
 
-        public PlayerStateEventArgs(IEnumerable<Player> players, PlayerState state)
+        public PlayerStateEventArgs(IEnumerable<string> players, PlayerState state)
         {
             State = state;
-            Players = players;
+            PlayerIds = players;
         }
 
         public enum PlayerState
@@ -24,7 +24,7 @@ namespace FragileAllegiance.Model
         }
     }
 
-    public class AsteroidStateEventArgs : EventArgs
+    public class AsteroidStateEventArgs : BaseEventArgs
     {
         public AsteroidState State { get; private set; }
         public IEnumerable<string> AsteroidIds { get; private set; }
@@ -42,7 +42,7 @@ namespace FragileAllegiance.Model
         }
     }
 
-    public class AsteroidOwnershipEventArgs : EventArgs
+    public class AsteroidOwnershipEventArgs : BaseEventArgs
     {
         public AsteroidOwnershipState State { get; private set; }
         public IEnumerable<string> AsteroidIds { get; private set; }
@@ -60,5 +60,10 @@ namespace FragileAllegiance.Model
             PlayerGainedOwnership,
             PlayerLostOwnership
         }
+    }
+
+    public abstract class BaseEventArgs : EventArgs
+    {
+        
     }
 }
